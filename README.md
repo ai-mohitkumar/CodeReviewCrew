@@ -4,7 +4,9 @@
 
 CodeReviewCrew is a Python-based multi-agent software engineering platform that converts a programming requirement into generated code, reviews the implementation, generates semantic tests, executes those tests, automatically retries failed implementations, and produces a structured final report.
 
-The project demonstrates agent orchestration, conditional workflow routing, automated testing, execution feedback, iterative code repair, REST API development, and an interactive Streamlit interface.
+The project supports both deterministic execution for reliable demonstrations and automated testing, and Gemini-powered LLM execution for dynamic code generation, review, and test generation.
+
+The project demonstrates agent orchestration, conditional workflow routing, LLM integration, automated testing, execution feedback, iterative code repair, REST API development, and an interactive Streamlit interface.
 
 ---
 
@@ -56,54 +58,123 @@ The workflow terminates when:
 ## Key Features
 
 * Multi-agent workflow orchestration using LangGraph
-* Deterministic Python code generation for demonstration tasks
-* Automated code review
+* Gemini-powered dynamic code generation
+* LLM-assisted code review
+* LLM-assisted pytest generation
+* Deterministic execution mode for reliable demonstrations and automated testing
+* Automated code review with structured findings
 * Semantic pytest generation
-* Isolated generated-code execution through a subprocess
+* Generated-code execution through an isolated subprocess workspace
 * Conditional retry routing
 * Automatic code repair demonstration
 * Maximum-iteration termination protection
 * Agent execution history
 * Structured final reports
 * FastAPI REST API
-* Interactive Streamlit frontend
+* Professional Streamlit dashboard
 * Five built-in demonstration cases
-* Unit tests with mocked external operations
-* No real external API calls during automated tests
+* Custom programming requirement support
+* Eight automated tests
+* External LLM calls disabled during deterministic automated tests
+
+---
+
+## Execution Modes
+
+CodeReviewCrew supports two execution modes.
+
+### Deterministic Mode
+
+```text
+AGENT_MODE=deterministic
+```
+
+Deterministic mode provides predictable implementations, reviews, and generated tests for supported demonstration cases.
+
+This mode is recommended for:
+
+* Automated testing
+* Reliable project demonstrations
+* Automatic repair workflow demonstrations
+* Development without external API usage
+* Reproducible workflow behavior
+
+Automated tests should run in deterministic mode so they do not depend on network connectivity, external API availability, model behavior, or API quotas.
+
+### LLM Mode
+
+```text
+AGENT_MODE=llm
+```
+
+LLM mode uses the Google Gemini API to dynamically process programming requirements.
+
+In this mode:
+
+```text
+Programming Requirement
+        |
+        v
+Gemini-Powered Coder
+        |
+        v
+Gemini-Powered Reviewer
+        |
+        v
+Gemini-Powered Tester
+        |
+        v
+Executor
+        |
+        +---- Tests Failed ----> Coder Repair
+        |
+        v
+Structured Final Report
+```
+
+LLM mode enables CodeReviewCrew to process programming requirements beyond the built-in deterministic demonstration cases.
+
+External LLM workflows may take longer than deterministic workflows because multiple model requests can occur during a single execution.
 
 ---
 
 ## Multi-Agent Architecture
 
-CodeReviewCrew contains four primary agents and one reporting stage.
+CodeReviewCrew contains four primary workflow agents and one reporting stage.
 
 ### Coder
 
 The Coder generates Python implementations from programming requirements.
 
-During retry iterations, it can receive:
+Depending on the configured execution mode, code generation can use deterministic demonstration logic or Gemini-powered dynamic generation.
+
+During retry iterations, the Coder can receive:
 
 * Previous implementation
 * Review feedback
 * Failed test output
 * Current iteration number
 
-This enables the workflow to demonstrate iterative code repair.
+This enables the workflow to perform iterative code repair.
 
 ### Reviewer
 
-The Reviewer analyzes generated code and produces findings such as:
+The Reviewer analyzes generated code and produces structured findings such as:
 
 * Approval status
 * Issues
 * Suggestions
 * Quality score
 
+In LLM mode, Gemini can dynamically review implementations according to the programming requirement and generated code.
+
 ### Tester
 
-The Tester generates pytest tests based on the requirement and generated implementation.
+The Tester generates pytest tests based on the programming requirement and generated implementation.
 
-The supported demonstration cases use meaningful behavioral assertions rather than only checking whether a function exists.
+In deterministic mode, supported demonstrations use meaningful behavioral assertions.
+
+In LLM mode, Gemini dynamically generates requirement-aware pytest tests.
 
 ### Executor
 
@@ -175,11 +246,13 @@ The default maximum number of iterations is:
 3
 ```
 
+The maximum-iteration stopping condition prevents infinite repair loops.
+
 ---
 
 ## Automatic Repair Demonstration
 
-The modulo demonstration case intentionally shows the repair loop.
+The modulo demonstration case intentionally shows the repair loop in deterministic mode.
 
 ### Requirement
 
@@ -196,7 +269,7 @@ def modulo(a, b):
     return a // b
 ```
 
-The Tester generates behavioral tests such as:
+The Tester generates behavioral tests:
 
 ```python
 assert modulo(10, 3) == 1
@@ -205,11 +278,13 @@ assert modulo(10, 5) == 0
 
 The tests fail.
 
-The Executor captures the failure and the workflow routes execution back to the Coder.
+The Executor captures the failure and routes execution back to the Coder.
 
 ### Iteration 2
 
-The Coder uses the previous implementation and failed test output to repair the implementation:
+The Coder receives the previous implementation, review feedback, and failed test output.
+
+The implementation is repaired:
 
 ```python
 def modulo(a, b):
@@ -218,39 +293,41 @@ def modulo(a, b):
 
 The tests pass.
 
-The workflow then routes to the Report stage.
-
 Final repair sequence:
 
 ```text
 FAILED -> CODER REPAIR -> PASSED
 ```
 
+This demonstration satisfies the project requirement to show the review and testing loop detecting and fixing a real implementation bug.
+
 ---
 
 ## Demonstration Cases
 
-The Streamlit interface provides at least five programming demonstrations.
+The Streamlit interface provides five built-in programming demonstrations.
 
-| Demonstration                    | Expected Behavior                                |
-| -------------------------------- | ------------------------------------------------ |
-| Addition                         | Passes in the first iteration                    |
-| Prime Number                     | Passes in the first iteration                    |
-| Odd or Even                      | Passes in the first iteration                    |
-| Palindrome                       | Passes in the first iteration                    |
-| Bug Detection + Automatic Repair | Fails first, repairs implementation, then passes |
+| Demonstration                    | Expected Behavior                                    |
+| -------------------------------- | ---------------------------------------------------- |
+| Addition                         | Passes in the first iteration                        |
+| Prime Number                     | Passes in the first iteration                        |
+| Odd or Even                      | Passes in the first iteration                        |
+| Palindrome                       | Passes in the first iteration                        |
+| Bug Detection + Automatic Repair | Fails first, repairs the implementation, then passes |
 
-Additional deterministic cases supported by the Coder may include:
+Additional deterministic cases may include:
 
 * Safe division
 * Duplicate removal
 * Binary search
 
+LLM mode also supports custom programming requirements.
+
 ---
 
 ## Streamlit Interface
 
-The frontend provides separate views for:
+The professional Streamlit dashboard provides separate views for:
 
 * Workflow Progress
 * Generated Code
@@ -260,9 +337,11 @@ The frontend provides separate views for:
 * Repair Iterations
 * Final Report
 
+The dashboard displays workflow status, test results, iterations used, quality score, termination reason, generated implementation, reviewer feedback, generated pytest tests, execution output, repair history, agent summaries, and the structured final report.
+
 The Repair Iterations view displays each workflow attempt independently.
 
-For the automatic repair demonstration, the interface clearly shows:
+For the automatic repair demonstration:
 
 ```text
 Iteration 1 - FAILED
@@ -304,7 +383,7 @@ Example request:
 
 ```json
 {
-  "requirement": "Create a Python function named is_prime that checks whether a number is prime."
+  "requirement": "Create a Python function named count_vowels that returns the number of vowels in a string."
 }
 ```
 
@@ -320,7 +399,12 @@ The endpoint executes the complete LangGraph workflow and returns the structured
   "iterations_used": 1,
   "max_iterations": 3,
   "final_code": "Generated Python implementation",
-  "review_feedback": "Reviewer findings",
+  "review_feedback": {
+    "approved": true,
+    "issues": [],
+    "suggestions": [],
+    "quality_score": 85
+  },
   "generated_tests": "Generated pytest tests",
   "test_output": "pytest execution output",
   "agent_summary": {
@@ -382,12 +466,15 @@ The generated `workspace/` directory is excluded from Git and pytest test discov
 ## Technology Stack
 
 * Python 3.12
-* FastAPI
 * LangGraph
+* Google Gemini API
+* google-genai Python SDK
+* FastAPI
+* Streamlit
 * Pydantic
 * pytest
-* Streamlit
 * Requests
+* python-dotenv
 * Python subprocess execution
 
 ---
@@ -426,9 +513,27 @@ python -m pip install -r requirements.txt
 
 ### 4. Configure Environment Variables
 
-Create `.env` from `.env.example` when external LLM functionality is configured.
+Create a `.env` file in the project root.
+
+Example:
+
+```text
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-flash-latest
+AGENT_MODE=llm
+```
 
 Never commit real API keys or secrets.
+
+The `.env` file must remain excluded through `.gitignore`.
+
+A safe `.env.example` file should contain placeholder values only:
+
+```text
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-flash-latest
+AGENT_MODE=deterministic
+```
 
 ---
 
@@ -438,8 +543,22 @@ Never commit real API keys or secrets.
 
 From the project root:
 
-```bash
+#### Deterministic Mode
+
+Windows PowerShell:
+
+```powershell
+$env:AGENT_MODE="deterministic"
 python -m uvicorn backend.main:app --reload --port 8000
+```
+
+#### LLM Mode
+
+Windows PowerShell:
+
+```powershell
+$env:AGENT_MODE="llm"
+python -m uvicorn backend.main:app --port 8000
 ```
 
 The backend is available locally on port `8000`.
@@ -454,15 +573,18 @@ Open another terminal, activate the same virtual environment, and run:
 python -m streamlit run frontend/app.py
 ```
 
-Select a demonstration case or enter a custom programming requirement, then click **Run Agents**.
+Select a built-in demonstration case or enter a custom programming requirement, then click **Run agents**.
 
 ---
 
 ## Running Tests
 
-Run the complete project test suite:
+Automated tests should be executed in deterministic mode.
 
-```bash
+Windows PowerShell:
+
+```powershell
+$env:AGENT_MODE="deterministic"
 python -m pytest -q --cache-clear
 ```
 
@@ -475,11 +597,11 @@ python -m pip check
 Current verified development checkpoint:
 
 ```text
-6 passed, 1 non-blocking StarletteDeprecationWarning
+8 passed, 1 non-blocking Starlette deprecation warning
 No broken requirements found.
 ```
 
-The Starlette warning is dependency-related and does not affect project behavior.
+The warning comes from FastAPI's test-client dependency chain and does not affect project functionality.
 
 ---
 
@@ -495,9 +617,33 @@ The automated test suite verifies:
 * Required final-report fields
 * Automatic repair behavior
 
-LLM calls and code execution are mocked where required.
+LLM calls and generated-code execution are mocked where required.
 
-Automated unit tests do not call real external APIs.
+Automated tests do not call real external APIs.
+
+Deterministic test execution makes the automated test suite stable, reproducible, and independent of external model availability.
+
+---
+
+## LLM Integration
+
+CodeReviewCrew uses the Google Gemini API through the `google-genai` Python SDK.
+
+The `LLMService`:
+
+* Loads configuration from environment variables
+* Initializes the Gemini client only when an API key is available
+* Uses a configurable Gemini model
+* Sends prompts to the Gemini Generate Content API
+* Returns generated model text to the requesting agent
+
+The Gemini model can be changed without modifying source code:
+
+```text
+GEMINI_MODEL=gemini-flash-latest
+```
+
+The API key must never be hardcoded into source files.
 
 ---
 
@@ -509,54 +655,55 @@ This implementation is intended for controlled educational and demonstration use
 
 Process isolation is not equivalent to a production-grade security sandbox.
 
-Running untrusted arbitrary code requires stronger isolation such as containers, restricted operating-system permissions, resource limits, and dedicated sandboxing infrastructure.
+Running untrusted arbitrary code requires stronger isolation such as containers, restricted operating-system permissions, resource limits, network restrictions, and dedicated sandboxing infrastructure.
 
 ---
 
 ## Current Limitations
 
-* Code generation is deterministic for supported demonstration tasks.
-* Generic programming requirements may fall back to placeholder implementations.
-* The Reviewer and Tester use heuristic logic in the current MVP.
-* Generated-code execution is not protected by a production-grade sandbox.
+* Deterministic mode supports a limited set of demonstration-oriented programming requirements.
+* LLM output quality and latency depend on external model availability and API behavior.
+* LLM workflows may take longer because Coder, Reviewer, and Tester can each make external model requests.
+* Generated-code execution is not protected by a production-grade security sandbox.
 * No persistent database is implemented.
 * No authentication or user management is implemented.
-* No deployment configuration is included yet.
+* Workflow history is not persisted after application restart.
+* Deployment configuration is not included yet.
 
 ---
 
 ## Future Improvements
 
-* Production LLM integration for dynamic code generation
-* More advanced reviewer reasoning
-* Requirement-aware test generation
 * Secure container-based code execution
-* Parallel agent execution
+* Parallel or asynchronous agent execution
 * Persistent workflow history
 * Human-in-the-loop approval
 * Authentication and authorization
-* Observability and tracing
+* Observability and distributed tracing
 * Code coverage reporting
-* Support for additional programming languages
+* Additional programming-language support
+* LLM response caching
+* Per-agent timeout and retry configuration
+* Streaming workflow progress
 * Deployment automation
 
 ---
 
 ## Development Status
 
-The current MVP includes:
+The current project includes:
 
 ```text
 Requirement Input
         |
         v
-Code Generation
+Deterministic or Gemini-Powered Code Generation
         |
         v
-Automated Review
+Automated / Gemini-Powered Review
         |
         v
-Semantic Test Generation
+Semantic / Gemini-Powered Test Generation
         |
         v
 Test Execution
@@ -567,10 +714,10 @@ Test Execution
 Structured Final Report
         |
         v
-Interactive Streamlit Visualization
+Professional Streamlit Dashboard
 ```
 
-The project demonstrates the complete multi-agent software engineering workflow required for the current development milestone.
+The project demonstrates the complete multi-agent software engineering workflow required for the Summer Training / Internship Project 24 outcomes.
 
 ---
 
