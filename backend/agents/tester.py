@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import ast
+import os
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+
+from backend.services.llm_service import LLMService
 
 
 @dataclass
@@ -244,12 +248,41 @@ def _select_tests(
     return _make_fallback_tests(fn_name), "fallback"
 
 
+def _is_llm_mode() -> bool:
+    return os.getenv("AGENT_MODE", "deterministic").strip().lower() == "llm"
+
+
+def _extract_code_block(text: str) -> str:
+    match = re.search(r"```(?:python)?\s*(.*?)\s*```", text, re.S | re.I)
+    if match:
+        return match.group(1).strip()
+    return text.strip()
+
+
 def generate_pytests(
     *,
     requirement: Optional[str] = None,
     code: str,
 ) -> Dict[str, Any]:
-    """Generate deterministic semantic pytest tests."""
+    """Generate semantic pytest tests, with optional LLM support."""
+
+    if _is_llm_mode():
+        try:
+            llm_service = LLMService()
+        except Exception:
+            llm_service = None
+
+        if llm_service and llm_service.is_available():
+            llm_prompt = (
+                "You are a Python testing expert. Return only pytest test code for the requirement. "
+                f"Requirement: {requirement or ''}\nImplementation:\n{code}"
+            )
+            try:
+                tests = _extract_code_block(llm_service.generate(llm_prompt))
+                if tests.strip():
+                    return {"test_code": tests, "summary": "Generated with LLM assistance."}
+            except Exception:
+                pass
 
     fn_name = _extract_callable_name(code)
 

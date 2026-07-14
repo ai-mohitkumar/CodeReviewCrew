@@ -23,10 +23,12 @@ def _get_iteration(state: Dict[str, Any]) -> int:
 
 
 def coder_node(state: ReviewState) -> ReviewState:
+    """Generate or repair the implementation."""
+
     prompt = state.get("prompt", "")
 
-    previous_iteration = _get_iteration(state)
-    current_iteration = previous_iteration + 1
+    # iteration represents the number of coder attempts started.
+    current_iteration = _get_iteration(state) + 1
 
     previous_code = state.get("code")
     review_feedback = state.get("review")
@@ -43,8 +45,6 @@ def coder_node(state: ReviewState) -> ReviewState:
 
     test_output = "\n".join(test_output_parts)
 
-    state["iteration"] = current_iteration
-
     code = generate_code(
         prompt,
         previous_code=previous_code,
@@ -53,9 +53,11 @@ def coder_node(state: ReviewState) -> ReviewState:
         iteration=current_iteration,
     )
 
+    state["iteration"] = current_iteration
     state["code"] = code
 
     state.setdefault("agent_history", [])
+
     state["agent_history"].append(
         {
             "agent_name": "CODER",

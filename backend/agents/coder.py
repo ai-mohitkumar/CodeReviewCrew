@@ -1,6 +1,43 @@
 from __future__ import annotations
 
+import os
 import re
+
+from backend.services.llm_service import LLMService
+
+
+def _llm_mode_enabled() -> bool:
+    return os.getenv("AGENT_MODE", "").strip().lower() == "llm"
+
+
+def _build_llm_prompt(
+    *,
+    prompt: str,
+    previous_code: str | None,
+    review_feedback: str | None,
+    test_output: str | None,
+    iteration: int,
+) -> str:
+    parts = [
+        "You are generating Python code for CodeReviewCrew.",
+        f"Iteration: {iteration}",
+        f"Requirement:\n{prompt}",
+    ]
+
+    if previous_code:
+        parts.append(f"Previous implementation:\n{previous_code}")
+
+    if review_feedback:
+        parts.append(f"Review feedback:\n{review_feedback}")
+
+    if test_output:
+        parts.append(f"Test output:\n{test_output}")
+
+    parts.append(
+        "Return only the final Python implementation with no markdown fences."
+    )
+
+    return "\n\n".join(parts)
 
 
 def _extract_function_name(prompt: str) -> str:
@@ -153,6 +190,16 @@ def generate_code(
     iteration: int = 1,
 ) -> str:
     """Generate deterministic Python code for supported demo requirements."""
+
+    if _llm_mode_enabled():
+        llm_prompt = _build_llm_prompt(
+            prompt=prompt,
+            previous_code=previous_code,
+            review_feedback=review_feedback,
+            test_output=test_output,
+            iteration=iteration,
+        )
+        return LLMService().generate(llm_prompt)
 
     normalized_prompt = prompt.lower()
     function_name = _extract_function_name(prompt)

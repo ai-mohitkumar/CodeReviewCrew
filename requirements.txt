@@ -5,3 +5,7 @@ langgraph
 pytest
 requests
 streamlit
+python-dotenv
+google-genai
+python-dotenv
+google-genai

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import ast
+import json
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
-import ast
+
+from backend.services.llm_service import LLMService
 
 
 @dataclass
@@ -96,10 +100,42 @@ def _edge_case_hints(requirement: Optional[str], code: str) -> List[Dict[str, An
     return suggestions
 
 
+def _is_llm_mode() -> bool:
+    return os.getenv("AGENT_MODE", "deterministic").strip().lower() == "llm"
+
+
+def _parse_review_payload(payload: str) -> Dict[str, Any]:
+    cleaned = payload.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+
+    try:
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+
+    return {
+        "approved": False,
+        "quality_score": 70,
+        "issues": [
+            {
+                "type": "correctness",
+                "severity": "medium",
+                "message": cleaned or "LLM review response could not be parsed.",
+            }
+        ],
+        "suggestions": [
+            {"type": "general", "message": "Review the implementation and improve it."}
+        ],
+    }
+
+
 def review_code(*, requirement: Optional[str] = None, code: str, generated_tests: Optional[str] = None) -> Dict[str, Any]:
     """Review an implementation against a requirement.
 
-    Heuristic reviewer meant to run without LLM access.
+    Heuristic reviewer meant to run without LLM access, with LLM mode as an optional upgrade.
 
     Returns a structured dict:
       - approved: bool
@@ -107,6 +143,26 @@ def review_code(*, requirement: Optional[str] = None, code: str, generated_tests
       - issues: [{type, severity, message, hint?}]
       - suggestions: [{type, message, hint?}]
     """
+
+    if _is_llm_mode():
+        try:
+            llm_service = LLMService()
+        except Exception:
+            llm_service = None
+
+        if llm_service and llm_service.is_available():
+            prompt = (
+                "You are a senior Python reviewer. Return a JSON object with keys: "
+                "approved, quality_score, issues, suggestions. "
+                f"Requirement: {requirement or ''}\nCode:\n{code}\nTests:\n{generated_tests or ''}"
+            )
+
+            try:
+                review = _parse_review_payload(llm_service.generate(prompt))
+                if isinstance(review, dict):
+                    return review
+            except Exception:
+                pass
 
     issues: List[Dict[str, Any]] = []
     suggestions: List[Dict[str, Any]] = []
