@@ -1,0 +1,73 @@
+[theme]
+showWidgetBorder = true
+showSidebarBorder = true
+baseRadius = "8px"
+buttonRadius = "8px"
+font = "'IBM Plex Sans':https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+codeFontSize = "0.875rem"
+baseFontSize = 14
+baseFontWeight = 400
+headingFontSizes = ["34px", "28px", "22px", "18px", "15px", "13px"]
+headingFontWeights = [600, 600, 600, 600, 600, 600]
+linkUnderline = false
+
+[theme.light]
+primaryColor = "#0F4C81"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F7FB"
+codeBackgroundColor = "#EEF3F8"
+textColor = "#14202B"
+linkColor = "#0F4C81"
+borderColor = "#D6E0EA"
+codeTextColor = "#14202B"
+chartCategoricalColors = ["#0F4C81", "#3C6E71", "#FF7A59", "#7A5AF8", "#2E8B57", "#B54708", "#667085"]
+blueColor = "#0F4C81"
+greenColor = "#2E8B57"
+redColor = "#B42318"
+yellowColor = "#D4A72C"
+orangeColor = "#FF7A59"
+violetColor = "#7A5AF8"
+grayColor = "#667085"
+dataframeBorderColor = "#D6E0EA"
+dataframeHeaderBackgroundColor = "#F4F7FB"
+
+[theme.light.sidebar]
+backgroundColor = "#F7F9FC"
+secondaryBackgroundColor = "#EEF3F8"
+codeBackgroundColor = "#E7EDF5"
+textColor = "#14202B"
+borderColor = "#D6E0EA"
+primaryColor = "#0F4C81"
+dataframeHeaderBackgroundColor = "#EEF3F8"
+dataframeBorderColor = "#D6E0EA"
+
+[theme.dark]
+primaryColor = "#63A4FF"
+backgroundColor = "#0F1722"
+secondaryBackgroundColor = "#182433"
+codeBackgroundColor = "#111B29"
+textColor = "#E8EEF5"
+linkColor = "#8AB8FF"
+borderColor = "#2A3B52"
+codeTextColor = "#E8EEF5"
+chartCategoricalColors = ["#63A4FF", "#53C7B7", "#FF9B73", "#A78BFA", "#5FD38D", "#F2C14E", "#98A7B8"]
+blueColor = "#63A4FF"
+greenColor = "#5FD38D"
+redColor = "#FF7B72"
+yellowColor = "#F2C14E"
+orangeColor = "#FF9B73"
+violetColor = "#A78BFA"
+grayColor = "#98A7B8"
+dataframeBorderColor = "#2A3B52"
+dataframeHeaderBackgroundColor = "#182433"
+
+[theme.dark.sidebar]
+backgroundColor = "#121C2A"
+secondaryBackgroundColor = "#1A2737"
+codeBackgroundColor = "#111B29"
+textColor = "#E8EEF5"
+borderColor = "#2A3B52"
+primaryColor = "#63A4FF"
+dataframeHeaderBackgroundColor = "#1A2737"
+dataframeBorderColor = "#2A3B52"

@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from typing import Any
+
 import requests
 import streamlit as st
 
 
-API_URL = "http://127.0.0.1:8000/api/run"
-REQUEST_TIMEOUT_SECONDS = 120
+import os
+
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/api/run")
+REQUEST_TIMEOUT_SECONDS = (10, 300)
+
 
 
 DEMO_CASES = {
@@ -32,359 +37,557 @@ DEMO_CASES = {
     ),
 }
 
+WORKFLOW_STAGES = [
+    "User Requirement",
+    "Coder",
+    "Reviewer",
+    "Tester",
+    "Executor",
+    "Report",
+    "End",
+]
+
 
 st.set_page_config(
     page_title="CodeReviewCrew",
-    page_icon="🤖",
+    page_icon=":material/terminal:",
     layout="wide",
 )
 
 
-st.title(
-    "CodeReviewCrew — Multi-Agent Code Generation, "
-    "Review & Testing Platform"
-)
-
-st.write(
-    "Enter a Python programming requirement and run the "
-    "multi-agent workflow."
-)
+def initialize_state() -> None:
+    st.session_state.setdefault("final_report", None)
+    st.session_state.setdefault("selected_demo", "Custom Requirement")
+    st.session_state.setdefault("requirement_input", "")
 
 
-selected_demo = st.selectbox(
-    "Choose Demonstration Case",
-    options=list(DEMO_CASES.keys()),
-)
-
-default_requirement = DEMO_CASES[selected_demo]
-
-requirement = st.text_area(
-    "Programming Requirement",
-    value=default_requirement,
-    placeholder=(
-        "Example: Create a Python function that checks "
-        "whether a number is prime."
-    ),
-    height=150,
-)
+def apply_demo_requirement() -> None:
+    selected_demo = st.session_state.get("selected_demo", "Custom Requirement")
+    st.session_state["requirement_input"] = DEMO_CASES.get(selected_demo, "")
 
 
-
-run_agents = st.button(
-    "Run Agents",
-    type="primary",
-    use_container_width=True,
-)
-
-
-st.subheader("Workflow Progress")
-
-progress_placeholder = st.empty()
-
-progress_placeholder.info(
-    "Waiting to run: CODER → REVIEWER → TESTER → EXECUTOR → REPORT"
-)
+def status_badge(report: dict[str, Any] | None) -> str:
+    if not report:
+        return ":blue-badge[Ready]"
+    if report.get("tests_passed"):
+        return ":green-badge[Passing]"
+    if report.get("status") == "failed":
+        return ":red-badge[Needs repair]"
+    return ":orange-badge[In progress]"
 
 
-tab_code, tab_review, tab_tests, tab_output, tab_iterations, tab_report = (
-    st.tabs(
-        [
-            "Generated Code",
-            "Review Findings",
-            "Generated Tests",
-            "Test Output",
-            "Repair Iterations",
-            "Final Report",
-        ]
+def workflow_text() -> str:
+    return " -> ".join(WORKFLOW_STAGES)
+
+
+def render_stage_flow() -> None:
+    stage_columns = st.columns(len(WORKFLOW_STAGES))
+    for column, stage in zip(stage_columns, WORKFLOW_STAGES):
+        with column:
+            st.caption(stage.upper())
+
+
+def render_review(review_feedback: Any) -> None:
+    if isinstance(review_feedback, dict):
+        approved = bool(review_feedback.get("approved"))
+        quality_score = review_feedback.get("quality_score")
+
+        badge = (
+            ":green-badge[Approved]"
+            if approved
+            else ":orange-badge[Revision recommended]"
+        )
+        st.markdown(badge)
+
+        if quality_score is not None:
+            st.metric("Quality score", f"{quality_score}/100")
+
+        issues = review_feedback.get("issues") or []
+        suggestions = review_feedback.get("suggestions") or []
+
+        if issues:
+            st.write("Issues")
+            for issue in issues:
+                st.write(f"- {issue}")
+
+        if suggestions:
+            st.write("Suggestions")
+            for suggestion in suggestions:
+                st.write(f"- {suggestion}")
+
+        if not issues and not suggestions:
+            st.success(
+                "The reviewer did not return any blocking findings.",
+                icon=":material/check_circle:",
+            )
+        return
+
+    if review_feedback:
+        st.write(review_feedback)
+    else:
+        st.info(
+            "No review findings were returned.",
+            icon=":material/info:",
+        )
+
+
+def render_agent_summary(agent_summary: dict[str, str]) -> None:
+    for agent_name, summary in agent_summary.items():
+        with st.container(border=True):
+            st.caption(agent_name.upper())
+            st.write(summary or "No summary was recorded for this agent.")
+
+
+def render_iteration_card(iteration_data: dict[str, Any], index: int) -> None:
+    iteration_number = iteration_data.get("iteration", index + 1)
+    test_result = iteration_data.get("test_result", {})
+    passed = bool(test_result.get("passed"))
+    headline = "Passed" if passed else "Failed"
+
+    with st.container(border=True):
+        col1, col2 = st.columns([0.7, 0.3], vertical_alignment="center")
+        with col1:
+            st.subheader(f"Iteration {iteration_number}")
+            st.caption(
+                "Generated implementation, review snapshot, tests, and output."
+            )
+        with col2:
+            st.markdown(
+                ":green-badge[Passed]"
+                if passed
+                else ":red-badge[Failed]"
+            )
+
+        summary_cols = st.columns(3)
+        summary_cols[0].metric("Result", headline.upper())
+        summary_cols[1].metric(
+            "Return code",
+            str(test_result.get("returncode", "n/a")),
+        )
+        summary_cols[2].metric(
+            "Stdout lines",
+            str(len(str(test_result.get("stdout", "")).splitlines())),
+        )
+
+        code_col, review_col = st.columns(2)
+        with code_col:
+            st.caption("Generated implementation")
+            st.code(iteration_data.get("code") or "", language="python")
+        with review_col:
+            st.caption("Reviewer snapshot")
+            render_review(iteration_data.get("review"))
+
+        test_col, output_col = st.columns(2)
+        with test_col:
+            st.caption("Generated tests")
+            st.code(iteration_data.get("tests") or "", language="python")
+        with output_col:
+            st.caption("Execution output")
+            output_parts = []
+            stdout = test_result.get("stdout")
+            stderr = test_result.get("stderr")
+            if stdout:
+                output_parts.append(str(stdout))
+            if stderr:
+                output_parts.append(str(stderr))
+            if output_parts:
+                st.code("\n".join(output_parts), language="text")
+            else:
+                st.info(
+                    "No execution output was recorded.",
+                    icon=":material/info:",
+                )
+
+
+initialize_state()
+report = st.session_state.final_report
+
+
+with st.sidebar:
+    st.title("Control center")
+    st.caption("Multi-agent software engineering workflow")
+    st.markdown(status_badge(report))
+    st.caption("Pipeline")
+    for stage in WORKFLOW_STAGES:
+        st.write(f"- {stage}")
+
+    st.caption("Workspace")
+    st.write("FastAPI backend on `127.0.0.1:8000`")
+    st.write("Interactive Streamlit review surface")
+    st.write("Built for code, tests, and repair loops")
+
+
+hero_col, signal_col = st.columns([1.4, 0.6], vertical_alignment="top")
+
+with hero_col:
+    st.title("CodeReviewCrew")
+    st.write(
+        "A professional control surface for generating code, reviewing it, "
+        "running tests, and inspecting automatic repair iterations."
     )
-)
+    st.caption(workflow_text())
+
+with signal_col:
+    with st.container(border=True):
+        st.caption("Current signal")
+        st.markdown(status_badge(report))
+        st.write(
+            "One requirement goes through coder, reviewer, tester, "
+            "executor, and report stages."
+        )
 
 
-if "final_report" not in st.session_state:
-    st.session_state.final_report = None
+request_col, overview_col = st.columns([1.2, 0.8], vertical_alignment="top")
 
+with request_col:
+    with st.container(border=True):
+        st.subheader("Run a workflow")
+        st.caption(
+            "Choose a demo or enter a custom Python requirement. "
+            "The request is sent to the backend only when you run it."
+        )
+
+        selected_demo = st.selectbox(
+            "Demonstration case",
+            options=list(DEMO_CASES.keys()),
+            key="selected_demo",
+            on_change=apply_demo_requirement,
+        )
+
+        requirement = st.text_area(
+            "Programming requirement",
+            placeholder=(
+                "Example: Create a Python function that checks "
+                "whether a number is prime."
+            ),
+            height=180,
+            key="requirement_input",
+        )
+
+        run_agents = st.button(
+            "Run agents",
+            type="primary",
+            icon=":material/play_arrow:",
+            width="stretch",
+        )
+
+with overview_col:
+    with st.container(border=True):
+        st.subheader("System overview")
+        st.caption("What this workspace is optimized to show")
+        st.write("- Deterministic demo cases for clear walkthroughs")
+        st.write("- Review findings with quality scoring")
+        st.write("- Generated pytest coverage and execution output")
+        st.write("- Full repair timeline when the first attempt fails")
+
+    st.space("small")
+
+    with st.container(border=True):
+        st.subheader("Workflow stages")
+        st.caption("Aligned to the README pipeline")
+        render_stage_flow()
+
+
+progress_container = st.container(border=True)
+with progress_container:
+    st.subheader("Workflow progress")
+    st.caption("Live run state and latest system response")
+    progress_placeholder = st.empty()
 
 if run_agents:
     if not requirement.strip():
-        st.warning("Please enter a programming requirement.")
-
+        progress_placeholder.warning(
+            "Please enter a programming requirement before running the workflow.",
+            icon=":material/warning:",
+        )
     else:
         st.session_state.final_report = None
-
         progress_placeholder.warning(
-            "Running CODER → REVIEWER → TESTER → EXECUTOR..."
+            "Running User Requirement -> Coder -> Reviewer -> Tester -> Executor...",
+            icon=":material/schedule:",
         )
 
         try:
             with st.spinner("Running multi-agent workflow..."):
                 response = requests.post(
                     API_URL,
-                    json={
-                        "requirement": requirement.strip(),
-                    },
+                    json={"requirement": requirement.strip()},
                     timeout=REQUEST_TIMEOUT_SECONDS,
                 )
 
             response.raise_for_status()
-
             st.session_state.final_report = response.json()
+            report = st.session_state.final_report
 
-            if st.session_state.final_report.get("tests_passed"):
+            if report.get("tests_passed"):
                 progress_placeholder.success(
-                    "CODER → REVIEWER → TESTER → EXECUTOR "
-                    "→ REPORT → TESTS PASSED"
+                    "Workflow completed successfully. Tests passed and the "
+                    "final report is ready.",
+                    icon=":material/check_circle:",
                 )
             else:
                 progress_placeholder.error(
-                    "CODER → REVIEWER → TESTER → EXECUTOR "
-                    "→ REPAIR ITERATIONS → REPORT"
+                    "Workflow finished with a failed final test state. "
+                    "Inspect the repair iterations and report for details.",
+                    icon=":material/error:",
                 )
 
         except requests.ConnectionError:
             progress_placeholder.error(
-                "Could not connect to the backend. "
-                "Make sure FastAPI is running on port 8000."
+                "Could not connect to the backend. Make sure FastAPI is "
+                "running on port 8000.",
+                icon=":material/error:",
             )
-
         except requests.Timeout:
             progress_placeholder.error(
-                "The workflow request timed out."
+                "The workflow request timed out.",
+                icon=":material/timer_off:",
             )
-
         except requests.RequestException as exc:
             progress_placeholder.error(
-                f"Backend request failed: {exc}"
+                f"Backend request failed: {exc}",
+                icon=":material/error:",
             )
-
         except ValueError:
             progress_placeholder.error(
-                "The backend returned an invalid JSON response."
+                "The backend returned an invalid JSON response.",
+                icon=":material/error:",
             )
+else:
+    progress_placeholder.info(
+        "Ready to run. Submit a requirement to populate code, review, tests, "
+        "execution output, and the final report.",
+        icon=":material/info:",
+    )
 
 
 report = st.session_state.final_report
 
+(
+    tab_progress,
+    tab_code,
+    tab_review,
+    tab_tests,
+    tab_output,
+    tab_iterations,
+    tab_report,
+) = st.tabs(
+    [
+        "Workflow Progress",
+        "Generated Code",
+        "Review Findings",
+        "Generated Tests",
+        "Test Output",
+        "Repair Iterations",
+        "Final Report",
+    ]
+)
+
+
+with tab_progress:
+    with st.container(border=True):
+        st.subheader("Workflow progress")
+        st.caption("Summary of the current run, aligned to the README flow.")
+        st.write(workflow_text())
+
+        if report:
+            metric_columns = st.columns(4)
+            metric_columns[0].metric(
+                "Status",
+                str(report.get("status", "unknown")).upper(),
+            )
+            metric_columns[1].metric(
+                "Tests passed",
+                "YES" if report.get("tests_passed") else "NO",
+            )
+            metric_columns[2].metric(
+                "Iterations used",
+                str(report.get("iterations_used", 0)),
+            )
+            quality_score = report.get("quality_score")
+            metric_columns[3].metric(
+                "Quality score",
+                f"{quality_score}/100" if quality_score is not None else "n/a",
+            )
+
+            info_col, reason_col = st.columns(
+                [1.1, 0.9],
+                vertical_alignment="top",
+            )
+            with info_col:
+                st.subheader("Requirement summary")
+                st.write(report.get("requirement", ""))
+            with reason_col:
+                st.subheader("Termination reason")
+                st.write(
+                    report.get(
+                        "termination_reason",
+                        "No termination reason returned.",
+                    )
+                )
+        else:
+            st.info(
+                "Workflow progress details will appear here after a workflow run.",
+                icon=":material/info:",
+            )
+
 
 with tab_code:
-    if report:
-        st.code(
-            report.get("final_code", ""),
-            language="python",
-        )
-    else:
-        st.info("Generated code will appear here.")
+    with st.container(border=True):
+        st.subheader("Generated implementation")
+        st.caption("Final code returned by the workflow")
+        if report:
+            st.code(report.get("final_code", ""), language="python")
+        else:
+            st.info(
+                "Generated code will appear here after a workflow run.",
+                icon=":material/code:",
+            )
 
 
 with tab_review:
-    if report:
-        review_feedback = report.get("review_feedback", "")
-
-        if review_feedback:
-            st.write(review_feedback)
+    with st.container(border=True):
+        st.subheader("Review findings")
+        st.caption("Latest reviewer assessment")
+        if report:
+            render_review(report.get("review_feedback"))
         else:
-            st.info("No review findings were returned.")
-    else:
-        st.info("Reviewer findings will appear here.")
+            st.info(
+                "Reviewer findings will appear here after a workflow run.",
+                icon=":material/rate_review:",
+            )
 
 
 with tab_tests:
-    if report:
-        st.code(
-            report.get("generated_tests", ""),
-            language="python",
-        )
-    else:
-        st.info("Generated pytest tests will appear here.")
+    with st.container(border=True):
+        st.subheader("Generated tests")
+        st.caption("Pytest coverage synthesized from the requirement")
+        if report:
+            st.code(report.get("generated_tests", ""), language="python")
+        else:
+            st.info(
+                "Generated tests will appear here after a workflow run.",
+                icon=":material/science:",
+            )
 
 
 with tab_output:
-    if report:
-        test_output = report.get("test_output", "")
-
-        if test_output:
-            st.code(test_output, language="text")
+    with st.container(border=True):
+        st.subheader("Execution output")
+        st.caption("Stdout and stderr from the test run")
+        if report:
+            test_output = report.get("test_output", "")
+            if test_output:
+                st.code(test_output, language="text")
+            else:
+                st.info(
+                    "No test output was returned.",
+                    icon=":material/info:",
+                )
         else:
-            st.info("No test output was returned.")
-    else:
-        st.info("Test execution output will appear here.")
+            st.info(
+                "Execution output will appear here after a workflow run.",
+                icon=":material/terminal:",
+            )
 
 
 with tab_iterations:
+    st.subheader("Repair timeline")
+    st.caption("Each executor attempt is preserved as its own checkpoint.")
     if report:
         iterations = report.get("iterations", [])
-
         if not iterations:
-            st.info("No workflow iterations were recorded.")
-
+            st.info(
+                "No workflow iterations were recorded.",
+                icon=":material/history:",
+            )
         else:
-            st.subheader("Agent Repair Timeline")
-
-            total_iterations = len(iterations)
-
-            if total_iterations == 1:
+            if len(iterations) == 1:
                 st.success(
-                    "The generated implementation passed testing "
-                    "on the first iteration."
+                    "The implementation passed testing on the first iteration.",
+                    icon=":material/check_circle:",
                 )
             else:
                 st.warning(
-                    f"The workflow used {total_iterations} iterations. "
-                    "The Coder repaired the implementation after "
-                    "failed tests."
+                    f"The workflow used {len(iterations)} iterations before "
+                    "producing its final state.",
+                    icon=":material/build:",
                 )
 
             for index, iteration_data in enumerate(iterations):
-                iteration_number = iteration_data.get(
-                    "iteration",
-                    index + 1,
-                )
-
-                test_result = iteration_data.get(
-                    "test_result",
-                    {},
-                )
-
-                passed = bool(
-                    test_result.get("passed")
-                )
-
-                if passed:
-                    status_text = "PASSED"
-                else:
-                    status_text = "FAILED"
-
-                st.markdown(
-                    f"### Iteration {iteration_number} — {status_text}"
-                )
-
-                if not passed:
-                    st.error(
-                        "Tests failed. The workflow routes execution "
-                        "back to the Coder for repair."
-                    )
-                else:
-                    if iteration_number > 1:
-                        st.success(
-                            "The repaired implementation passed all tests."
-                        )
-                    else:
-                        st.success(
-                            "The initial implementation passed all tests."
-                        )
-
-                code = iteration_data.get("code") or ""
-
-                st.markdown("#### Generated Implementation")
-
-                st.code(
-                    code,
-                    language="python",
-                )
-
-                review = iteration_data.get("review")
-
-                st.markdown("#### Reviewer Findings")
-
-                if review:
-                    st.write(review)
-                else:
-                    st.info(
-                        "No reviewer snapshot was recorded "
-                        "for this iteration."
-                    )
-
-                tests = iteration_data.get("tests") or ""
-
-                st.markdown("#### Generated Tests")
-
-                st.code(
-                    tests,
-                    language="python",
-                )
-
-                stdout = test_result.get("stdout", "")
-                stderr = test_result.get("stderr", "")
-
-                st.markdown("#### Test Execution Output")
-
-                if stdout:
-                    st.code(
-                        stdout,
-                        language="text",
-                    )
-
-                if stderr:
-                    st.code(
-                        stderr,
-                        language="text",
-                    )
-
-                if not stdout and not stderr:
-                    st.info(
-                        "No execution output was recorded."
-                    )
-
-                if index < total_iterations - 1:
-                    st.markdown("---")
-
-            if (
-                total_iterations >= 2
-                and not iterations[0]
-                .get("test_result", {})
-                .get("passed", False)
-                and iterations[-1]
-                .get("test_result", {})
-                .get("passed", False)
-            ):
-                st.success(
-                    "Repair completed successfully: "
-                    "FAILED → CODER REPAIR → PASSED"
-                )
-
+                render_iteration_card(iteration_data, index)
+                if index < len(iterations) - 1:
+                    st.space("small")
     else:
         st.info(
-            "Repair iteration history will appear here."
+            "Repair iteration history will appear here after a workflow run.",
+            icon=":material/history:",
         )
-
 
 
 with tab_report:
     if report:
-        col1, col2, col3, col4 = st.columns(4)
+        with st.container(border=True):
+            st.subheader("Structured final report")
+            st.caption("Presented in the same order described in the README.")
 
-        col1.metric(
-            "Status",
-            str(report.get("status", "unknown")).upper(),
-        )
-
-        col2.metric(
-            "Tests Passed",
-            "YES" if report.get("tests_passed") else "NO",
-        )
-
-        col3.metric(
-            "Iterations Used",
-            report.get("iterations_used", 0),
-        )
-
-        col4.metric(
-            "Max Iterations",
-            report.get("max_iterations", 0),
-        )
-
-        st.subheader("Agent Summary")
-        st.json(report.get("agent_summary", {}))
-
-        st.subheader("Termination Reason")
-        st.write(
-            report.get(
-                "termination_reason",
-                "No termination reason returned.",
+            st.write(f"Requirement: `{report.get('requirement', '')}`")
+            st.write(f"Status: `{report.get('status', 'unknown')}`")
+            st.write(f"Tests passed: `{report.get('tests_passed', False)}`")
+            st.write(
+                f"Iterations used: `{report.get('iterations_used', 0)}`"
             )
-        )
+            st.write(
+                f"Max iterations: `{report.get('max_iterations', 0)}`"
+            )
+            st.write(
+                f"Termination reason: `{report.get('termination_reason', '')}`"
+            )
 
-        st.subheader("Complete Final Report")
-        st.json(report)
+        st.space("small")
 
+        with st.container(border=True):
+            st.subheader("Final code")
+            st.code(report.get("final_code", ""), language="python")
+
+        st.space("small")
+
+        with st.container(border=True):
+            st.subheader("Review feedback")
+            render_review(report.get("review_feedback"))
+
+        st.space("small")
+
+        with st.container(border=True):
+            st.subheader("Generated tests")
+            st.code(report.get("generated_tests", ""), language="python")
+
+        st.space("small")
+
+        with st.container(border=True):
+            st.subheader("Test output")
+            test_output = report.get("test_output", "")
+            if test_output:
+                st.code(test_output, language="text")
+            else:
+                st.info(
+                    "No test output was returned.",
+                    icon=":material/info:",
+                )
+
+        st.space("small")
+
+        with st.container(border=True):
+            st.subheader("Agent summary")
+            render_agent_summary(report.get("agent_summary", {}))
+
+        st.space("small")
+
+        with st.container(border=True):
+            st.subheader("Raw final report")
+            st.json(report)
     else:
-        st.info("The final structured report will appear here.")
+        st.info(
+            "The final structured report will appear here after a workflow run.",
+            icon=":material/description:",
+        )
