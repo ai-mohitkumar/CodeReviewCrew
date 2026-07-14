@@ -6,7 +6,43 @@ CodeReviewCrew is a Python-based multi-agent software engineering platform that 
 
 The project supports both deterministic execution for reliable demonstrations and automated testing, and Gemini-powered LLM execution for dynamic code generation, review, and test generation.
 
-The project demonstrates agent orchestration, conditional workflow routing, LLM integration, automated testing, execution feedback, iterative code repair, REST API development, and an interactive Streamlit interface.
+The project demonstrates agent orchestration, conditional workflow routing, LLM integration, automated testing, execution feedback, iterative code repair, REST API development, cloud deployment, and an interactive Streamlit interface.
+
+---
+
+## Live Deployment
+
+CodeReviewCrew is deployed as a full-stack multi-agent software engineering application.
+
+- **Live Frontend:** https://codereviewcrew.streamlit.app/
+- **Backend API:** https://codereviewcrew.onrender.com
+- **API Documentation:** https://codereviewcrew.onrender.com/docs
+
+The public deployment currently uses deterministic execution mode for stable demonstrations, reproducible workflow results, and independence from external LLM API availability.
+
+### Deployment Architecture
+
+```text
+User
+  |
+  v
+Streamlit Community Cloud
+  |
+  v
+FastAPI Backend on Render
+  |
+  v
+LangGraph Multi-Agent Workflow
+  |
+  v
+Coder -> Reviewer -> Tester -> Executor
+                              |
+                              v
+                            Report
+                              |
+                              v
+                             End
+```
 
 ---
 
@@ -50,32 +86,35 @@ If the generated implementation fails testing, execution feedback is sent back t
 
 The workflow terminates when:
 
-* All generated tests pass, or
-* The configured maximum number of iterations is reached.
+- All generated tests pass, or
+- The configured maximum number of iterations is reached.
 
 ---
 
 ## Key Features
 
-* Multi-agent workflow orchestration using LangGraph
-* Gemini-powered dynamic code generation
-* LLM-assisted code review
-* LLM-assisted pytest generation
-* Deterministic execution mode for reliable demonstrations and automated testing
-* Automated code review with structured findings
-* Semantic pytest generation
-* Generated-code execution through an isolated subprocess workspace
-* Conditional retry routing
-* Automatic code repair demonstration
-* Maximum-iteration termination protection
-* Agent execution history
-* Structured final reports
-* FastAPI REST API
-* Professional Streamlit dashboard
-* Five built-in demonstration cases
-* Custom programming requirement support
-* Eight automated tests
-* External LLM calls disabled during deterministic automated tests
+- Multi-agent workflow orchestration using LangGraph
+- Gemini-powered dynamic code generation
+- LLM-assisted code review
+- LLM-assisted pytest generation
+- Deterministic execution mode for reliable demonstrations and automated testing
+- Automated code review with structured findings
+- Semantic pytest generation
+- Generated-code execution through an isolated subprocess workspace
+- Conditional retry routing
+- Automatic code repair demonstration
+- Maximum-iteration termination protection
+- Agent execution history
+- Structured final reports
+- FastAPI REST API
+- Professional Streamlit dashboard
+- Five built-in demonstration cases
+- Custom programming requirement support
+- Automated test suite
+- External LLM calls disabled during deterministic automated tests
+- Render backend deployment
+- Streamlit Community Cloud frontend deployment
+- Environment-based frontend/backend configuration
 
 ---
 
@@ -93,13 +132,16 @@ Deterministic mode provides predictable implementations, reviews, and generated 
 
 This mode is recommended for:
 
-* Automated testing
-* Reliable project demonstrations
-* Automatic repair workflow demonstrations
-* Development without external API usage
-* Reproducible workflow behavior
+- Automated testing
+- Reliable project demonstrations
+- Automatic repair workflow demonstrations
+- Development without external API usage
+- Reproducible workflow behavior
+- Stable cloud deployment demonstrations
 
 Automated tests should run in deterministic mode so they do not depend on network connectivity, external API availability, model behavior, or API quotas.
+
+The current public deployment uses deterministic mode.
 
 ### LLM Mode
 
@@ -150,10 +192,10 @@ Depending on the configured execution mode, code generation can use deterministi
 
 During retry iterations, the Coder can receive:
 
-* Previous implementation
-* Review feedback
-* Failed test output
-* Current iteration number
+- Previous implementation
+- Review feedback
+- Failed test output
+- Current iteration number
 
 This enables the workflow to perform iterative code repair.
 
@@ -161,10 +203,10 @@ This enables the workflow to perform iterative code repair.
 
 The Reviewer analyzes generated code and produces structured findings such as:
 
-* Approval status
-* Issues
-* Suggestions
-* Quality score
+- Approval status
+- Issues
+- Suggestions
+- Quality score
 
 In LLM mode, Gemini can dynamically review implementations according to the programming requirement and generated code.
 
@@ -191,19 +233,19 @@ The Executor:
 
 The Report stage builds the structured final result containing:
 
-* Requirement
-* Completion status
-* Test status
-* Iterations used
-* Maximum iterations
-* Final generated code
-* Review feedback
-* Generated tests
-* Test output
-* Agent summaries
-* Termination reason
-* Iteration history
-* Quality score
+- Requirement
+- Completion status
+- Test status
+- Iterations used
+- Maximum iterations
+- Final generated code
+- Review feedback
+- Generated tests
+- Test output
+- Agent summaries
+- Termination reason
+- Iteration history
+- Quality score
 
 ---
 
@@ -299,7 +341,7 @@ Final repair sequence:
 FAILED -> CODER REPAIR -> PASSED
 ```
 
-This demonstration satisfies the project requirement to show the review and testing loop detecting and fixing a real implementation bug.
+This demonstration shows the review and testing loop detecting and fixing an implementation bug.
 
 ---
 
@@ -307,19 +349,13 @@ This demonstration satisfies the project requirement to show the review and test
 
 The Streamlit interface provides five built-in programming demonstrations.
 
-| Demonstration                    | Expected Behavior                                    |
-| -------------------------------- | ---------------------------------------------------- |
-| Addition                         | Passes in the first iteration                        |
-| Prime Number                     | Passes in the first iteration                        |
-| Odd or Even                      | Passes in the first iteration                        |
-| Palindrome                       | Passes in the first iteration                        |
+| Demonstration | Expected Behavior |
+| --- | --- |
+| Addition | Passes in the first iteration |
+| Prime Number | Passes in the first iteration |
+| Odd or Even | Passes in the first iteration |
+| Palindrome | Passes in the first iteration |
 | Bug Detection + Automatic Repair | Fails first, repairs the implementation, then passes |
-
-Additional deterministic cases may include:
-
-* Safe division
-* Duplicate removal
-* Binary search
 
 LLM mode also supports custom programming requirements.
 
@@ -329,28 +365,28 @@ LLM mode also supports custom programming requirements.
 
 The professional Streamlit dashboard provides separate views for:
 
-* Workflow Progress
-* Generated Code
-* Review Findings
-* Generated Tests
-* Test Output
-* Repair Iterations
-* Final Report
+- Workflow Progress
+- Generated Code
+- Review Findings
+- Generated Tests
+- Test Output
+- Repair Iterations
+- Final Report
 
 The dashboard displays workflow status, test results, iterations used, quality score, termination reason, generated implementation, reviewer feedback, generated pytest tests, execution output, repair history, agent summaries, and the structured final report.
 
-The Repair Iterations view displays each workflow attempt independently.
+The frontend reads the deployed backend API URL from Streamlit Community Cloud Secrets.
 
-For the automatic repair demonstration:
+Example:
+
+```toml
+API_URL = "https://codereviewcrew.onrender.com/api/run"
+```
+
+For local development, the frontend falls back to:
 
 ```text
-Iteration 1 - FAILED
-        |
-        v
-Coder Repair
-        |
-        v
-Iteration 2 - PASSED
+http://127.0.0.1:8000/api/run
 ```
 
 ---
@@ -426,6 +462,9 @@ The endpoint executes the complete LangGraph workflow and returns the structured
 ```text
 CodeReviewCrew/
 |
+|-- .streamlit/
+|   |-- config.toml
+|
 |-- backend/
 |   |-- agents/
 |   |   |-- coder.py
@@ -445,17 +484,27 @@ CodeReviewCrew/
 |   |-- main.py
 |   |-- smoke_test_llm.py
 |
+|-- docs/
+|   |-- screenshots/
+|       |-- 01-main-interface.png
+|       |-- 02-successful-workflow.png
+|       |-- 03-generated-code.png
+|       |-- 04-generated-review.pdf
+|
 |-- frontend/
 |   |-- app.py
 |
 |-- tests/
 |   |-- test_health.py
+|   |-- test_llm_mode.py
 |   |-- test_workflow.py
 |
 |-- .env.example
 |-- .gitignore
 |-- pytest.ini
+|-- render.yaml
 |-- requirements.txt
+|-- runtime.txt
 |-- README.md
 ```
 
@@ -465,17 +514,20 @@ The generated `workspace/` directory is excluded from Git and pytest test discov
 
 ## Technology Stack
 
-* Python 3.12
-* LangGraph
-* Google Gemini API
-* google-genai Python SDK
-* FastAPI
-* Streamlit
-* Pydantic
-* pytest
-* Requests
-* python-dotenv
-* Python subprocess execution
+- Python 3.12
+- LangGraph
+- Google Gemini API
+- google-genai Python SDK
+- FastAPI
+- Streamlit
+- Pydantic
+- pytest
+- Requests
+- python-dotenv
+- Python subprocess execution
+- Render
+- Streamlit Community Cloud
+- GitHub
 
 ---
 
@@ -490,14 +542,14 @@ cd CodeReviewCrew
 
 ### 2. Create a Virtual Environment
 
-Windows:
+#### Windows
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-Linux or macOS:
+#### Linux or macOS
 
 ```bash
 python3 -m venv .venv
@@ -537,15 +589,13 @@ AGENT_MODE=deterministic
 
 ---
 
-## Running the Application
+## Running the Application Locally
 
 ### Start the FastAPI Backend
 
 From the project root:
 
 #### Deterministic Mode
-
-Windows PowerShell:
 
 ```powershell
 $env:AGENT_MODE="deterministic"
@@ -554,20 +604,14 @@ python -m uvicorn backend.main:app --reload --port 8000
 
 #### LLM Mode
 
-Windows PowerShell:
-
 ```powershell
 $env:AGENT_MODE="llm"
 python -m uvicorn backend.main:app --port 8000
 ```
 
-The backend is available locally on port `8000`.
-
-Interactive API documentation is available through FastAPI's `/docs` endpoint.
-
 ### Start the Streamlit Frontend
 
-Open another terminal, activate the same virtual environment, and run:
+Open another terminal, activate the virtual environment, and run:
 
 ```bash
 python -m streamlit run frontend/app.py
@@ -577,11 +621,50 @@ Select a built-in demonstration case or enter a custom programming requirement, 
 
 ---
 
+## Cloud Deployment
+
+The project uses separate cloud services for the backend and frontend.
+
+### Backend Deployment on Render
+
+The FastAPI backend is deployed as a Render Web Service.
+
+Deployment configuration:
+
+```text
+Environment: Python 3
+Branch: main
+Build Command: pip install -r requirements.txt
+Start Command: python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+Instance Type: Free
+AGENT_MODE: deterministic
+```
+
+The repository contains `render.yaml` and `runtime.txt` for backend deployment configuration.
+
+### Frontend Deployment on Streamlit Community Cloud
+
+Deployment configuration:
+
+```text
+Repository: ai-mohitkumar/CodeReviewCrew
+Branch: main
+Main file path: frontend/app.py
+```
+
+The deployed backend URL is configured through Streamlit Secrets:
+
+```toml
+API_URL = "https://codereviewcrew.onrender.com/api/run"
+```
+
+This architecture allows the Streamlit frontend and FastAPI backend to be deployed and managed independently.
+
+---
+
 ## Running Tests
 
 Automated tests should be executed in deterministic mode.
-
-Windows PowerShell:
 
 ```powershell
 $env:AGENT_MODE="deterministic"
@@ -601,21 +684,20 @@ Current verified development checkpoint:
 No broken requirements found.
 ```
 
-The warning comes from FastAPI's test-client dependency chain and does not affect project functionality.
-
 ---
 
 ## Testing Strategy
 
 The automated test suite verifies:
 
-* Health endpoint behavior
-* API request validation
-* Successful workflow termination
-* Retry routing after failed tests
-* Maximum-iteration termination
-* Required final-report fields
-* Automatic repair behavior
+- Health endpoint behavior
+- API request validation
+- Successful workflow termination
+- Retry routing after failed tests
+- Maximum-iteration termination
+- Required final-report fields
+- Automatic repair behavior
+- LLM-mode agent behavior with mocked external calls
 
 LLM calls and generated-code execution are mocked where required.
 
@@ -631,11 +713,11 @@ CodeReviewCrew uses the Google Gemini API through the `google-genai` Python SDK.
 
 The `LLMService`:
 
-* Loads configuration from environment variables
-* Initializes the Gemini client only when an API key is available
-* Uses a configurable Gemini model
-* Sends prompts to the Gemini Generate Content API
-* Returns generated model text to the requesting agent
+- Loads configuration from environment variables
+- Initializes the Gemini client only when an API key is available
+- Uses a configurable Gemini model
+- Sends prompts to the Gemini Generate Content API
+- Returns generated model text to the requesting agent
 
 The Gemini model can be changed without modifying source code:
 
@@ -643,11 +725,11 @@ The Gemini model can be changed without modifying source code:
 GEMINI_MODEL=gemini-flash-latest
 ```
 
-The API key must never be hardcoded into source files.
+The API key must never be hardcoded into source files or committed to Git.
 
 ---
 
-## Safety Note
+## Security and Safety
 
 The Executor runs generated Python code through a subprocess.
 
@@ -655,37 +737,45 @@ This implementation is intended for controlled educational and demonstration use
 
 Process isolation is not equivalent to a production-grade security sandbox.
 
-Running untrusted arbitrary code requires stronger isolation such as containers, restricted operating-system permissions, resource limits, network restrictions, and dedicated sandboxing infrastructure.
+Running untrusted arbitrary code requires stronger isolation, such as:
+
+- Containers
+- Restricted operating-system permissions
+- Resource limits
+- Network restrictions
+- Dedicated sandboxing infrastructure
+
+API keys and other sensitive configuration values must be stored in environment variables or cloud secret-management systems.
 
 ---
 
 ## Current Limitations
 
-* Deterministic mode supports a limited set of demonstration-oriented programming requirements.
-* LLM output quality and latency depend on external model availability and API behavior.
-* LLM workflows may take longer because Coder, Reviewer, and Tester can each make external model requests.
-* Generated-code execution is not protected by a production-grade security sandbox.
-* No persistent database is implemented.
-* No authentication or user management is implemented.
-* Workflow history is not persisted after application restart.
-* Deployment configuration is not included yet.
+- Deterministic mode supports a limited set of demonstration-oriented programming requirements.
+- LLM output quality and latency depend on external model availability and API behavior.
+- LLM workflows may take longer because Coder, Reviewer, and Tester can each make external model requests.
+- Generated-code execution is not protected by a production-grade security sandbox.
+- No persistent database is implemented.
+- No authentication or user management is implemented.
+- Workflow history is not persisted after application restart.
+- Render free-tier services may experience cold-start delays after inactivity.
 
 ---
 
 ## Future Improvements
 
-* Secure container-based code execution
-* Parallel or asynchronous agent execution
-* Persistent workflow history
-* Human-in-the-loop approval
-* Authentication and authorization
-* Observability and distributed tracing
-* Code coverage reporting
-* Additional programming-language support
-* LLM response caching
-* Per-agent timeout and retry configuration
-* Streaming workflow progress
-* Deployment automation
+- Secure container-based code execution
+- Parallel or asynchronous agent execution
+- Persistent workflow history
+- Human-in-the-loop approval
+- Authentication and authorization
+- Observability and distributed tracing
+- Code coverage reporting
+- Additional programming-language support
+- LLM response caching
+- Per-agent timeout and retry configuration
+- Streaming workflow progress
+- CI/CD deployment automation and production monitoring
 
 ---
 
@@ -715,14 +805,17 @@ Structured Final Report
         |
         v
 Professional Streamlit Dashboard
+        |
+        v
+Cloud Deployment
 ```
 
-The project demonstrates the complete multi-agent software engineering workflow required for the Summer Training / Internship Project 24 outcomes.
+The project demonstrates a complete multi-agent software engineering workflow, automated testing, iterative repair, LLM integration, REST API development, frontend/backend cloud deployment, and professional project documentation.
 
 ---
 
 ## Author
 
-Mohit Kumar
+**Mohit Kumar**
 
 GitHub: ai-mohitkumar
